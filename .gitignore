@@ -7,3 +7,4 @@ __pycache__
 arpy.egg-info
 dist
 .mypy_cache
+.python-version
