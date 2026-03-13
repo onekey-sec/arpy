@@ -13,37 +13,46 @@ Standard file usage:
 
 With context managers:
 
-    with arpy.Archive('file.ar') as ar:
-        print("files: %s" % ar.namelist())
-        with ar.open('content.txt') as f:
-            print(f.read())
+```python
+with arpy.Archive('file.ar') as ar:
+    print("files: %s" % ar.namelist())
+    with ar.open('content.txt') as f:
+        print(f.read())
+```
 
 Via headers for duplicate names:
 
-    with arpy.Archive('file.ar') as ar:
-        for header in ar.infolist():
-            print("file: %s" % header.name)
-            with ar.open(header) as f:
-                print(f.read())
+```python
+with arpy.Archive('file.ar') as ar:
+    for header in ar.infolist():
+        print("file: %s" % header.name)
+        with ar.open(header) as f:
+            print(f.read())
+```
 
 Or directly:
 
-    ar = arpy.Archive('file.ar'))
-    ar.read_all_headers()
+```python
+ar = arpy.Archive('file.ar'))
+ar.read_all_headers()
 
-    # check all available files
-    ar.archived_files.keys()
+# check all available files
+ar.archived_files.keys()
 
-    # get the contents of the archived file
-    ar.archived_files[b'some_file'].read()
+# get the contents of the archived file
+ar.archived_files[b'some_file'].read()
+```
 
 Stream / pipe / ... usage:
 --------------------------
 
-    ar = arpy.Archive('file.ar'))
-    for f in ar:
-        print("got file name: %s" % f.header.name)
-        print("with contents: %s" % f.read())
+```python
+ar = arpy.Archive('file.ar'))
+for f in ar:
+    print("got file name: %s" % f.header.name)
+    print("with contents: %s" % f.read())
+```
+
 
 Contributions
 =============
