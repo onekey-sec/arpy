@@ -1,0 +1,40 @@
+name: Check branch status
+
+on:
+  pull_request:
+  merge_group:
+
+permissions:
+  contents: read
+
+jobs:
+  check_branch_history:
+    # We need this job to be scheduled for merge groups as well, as it
+    # is a required status check for merging, but we can safely skip
+    # it...
+    if: ${{ github.event_name == 'pull_request' }}
+    name: Check - Linear history
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }} # otherwise, it'd create a merge commit
+          fetch-depth: "0"
+      - name: Check HEAD is rebased on ${{ github.event.pull_request.base.ref }}
+        run: |
+          git config --global user.name "$GITHUB_ACTOR"
+          git config --global user.email "github-actions@github.com"
+          git fetch origin $GITHUB_BASE_REF
+          PR_HEAD_SHA=$(git rev-parse HEAD)
+          git rebase FETCH_HEAD
+          REBASED_SHA=$(git rev-parse HEAD)
+          echo "PR HEAD: $PR_HEAD_SHA"
+          echo "Rebased HEAD: $REBASED_SHA"
+          git range-diff FETCH_HEAD..$PR_HEAD_SHA FETCH_HEAD..$REBASED_SHA
+          if [[ "$REBASED_SHA" != "$PR_HEAD_SHA" ]]; then
+              echo "Not fast forward, aborting!"
+              echo "Ensure that the PR branch is rebased on $GITHUB_BASE_REF and does not contain merge commits."
+              exit 1
+          fi
