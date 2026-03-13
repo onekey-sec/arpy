@@ -1,7 +1,7 @@
 Arpy
 ====
 
-This library can be used to access **ar** files from python. It's tested to work with python 3.5+ and pypy3. (for earlier pythons see version <2) Travis status: [![Build Status](https://travis-ci.org/viraptor/arpy.png)](https://travis-ci.org/viraptor/arpy)
+This library can be used to access **ar** files from python.
 
 It supports both GNU and BSD formats and exposes the archived files using the standard python **file** interface.
 
