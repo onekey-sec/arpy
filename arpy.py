@@ -454,18 +454,32 @@ class Archive(object):
 
 		raise ValueError("Can't look up file using type %s, expected bytes or ArchiveFileHeader" % (type(name),))
 
-	def extract(self, member: bytes, path: Optional[Union[str,bytes]]=None) -> None:
-		filename = os.path.basename(member)
+	def _resolve_extraction_path(self, member: bytes,
+			path: Optional[Union[str,bytes]]) -> bytes:
 		if path is None:
 			path = os.getcwd()
 
-		if isinstance(path, bytes):
-			filepath = os.path.join(path, filename)
-		else:
-			filepath = os.path.join(path.encode('utf-8'), filename)
+		if isinstance(path, str):
+			path = path.encode('utf-8')
+
+		normpath = os.path.abspath(path)
+		filepath = os.path.abspath(os.path.join(normpath, member))
+
+		if os.path.commonpath([normpath, filepath]) != normpath:
+			raise ExtractBreakoutAttempt("file %r would be extracted below specified path" % (member,))
+
+		return filepath
+
+	def extract(self, member: bytes, path: Optional[Union[str,bytes]]=None) -> None:
+		filepath = self._resolve_extraction_path(member, path)
 		buf_size = 8*1024
 
+		dirpath = os.path.dirname(filepath)
+		if dirpath:
+			os.makedirs(dirpath, exist_ok=True)
+
 		ar_member = self.open(member)
+		ar_member.seek(0)
 		with open(filepath, 'wb') as f:
 			while True:
 				buffer = ar_member.read(buf_size)
@@ -476,27 +490,13 @@ class Archive(object):
 	def extractall(self, path: Union[str, bytes], members: Optional[List[bytes]]=None) -> None:
 		self.read_all_headers()
 
-		normpath = os.path.normpath(path)
-		if isinstance(normpath, str):
-			normpath = normpath.encode('utf-8')
-
 		if members is None:
 			sources = list(self.archived_files.keys())
 		else:
 			sources = members
 
 		for member in sources:
-			member_dir = os.path.dirname(member)
-			member_name = os.path.basename(member)
-			filepath = os.path.join(normpath, member_dir, member_name)
-			norm_filepath = os.path.normpath(filepath)
-
-			if os.path.commonpath([normpath, norm_filepath]) != normpath:
-				raise ExtractBreakoutAttempt("file %r would be extracted below specified path" % (member,))
-
-			norm_dirpath = os.path.normpath(os.path.join(normpath, member_dir))
-			os.makedirs(norm_dirpath, exist_ok=True)
-			self.extract(member, norm_filepath)
+			self.extract(member, path)
 
 	def __enter__(self) -> "Archive":
 		return self
