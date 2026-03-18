@@ -2,6 +2,28 @@ import arpy
 import unittest
 import os
 import io
+from unittest.mock import patch, mock_open, call
+
+
+def make_archive(entries):
+	archive = io.BytesIO()
+	archive.write(b"!<arch>\n")
+	for name, data in entries:
+		header = "{:<16}{:<12}{:<6}{:<6}{:<8}{:<10}`\n".format(
+			name.decode('ascii') + '/',
+			1364071329,
+			1000,
+			100,
+			"100644",
+			len(data),
+		).encode('ascii')
+		archive.write(header)
+		archive.write(data)
+		if len(data) % 2:
+			archive.write(b"\n")
+	archive.seek(0)
+	return archive
+
 
 class ArContents(unittest.TestCase):
 	def test_archive_contents(self):
@@ -13,6 +35,71 @@ class ArContents(unittest.TestCase):
 		self.assertEqual(b'test_in_file_2\n', f2_contents)
 		ar.close()
 
+	def test_extract(self):
+		m = mock_open()
+		with arpy.Archive(os.path.join(os.path.dirname(__file__), 'contents.ar')) as ar:
+			with patch('arpy.open', m):
+				with patch('os.makedirs') as m_makedirs:
+					ar.extract(b'file1', '/foobar')
+
+		m_makedirs.assert_called_once_with(b'/foobar', exist_ok=True)
+		m.assert_called_once_with(b'/foobar/file1', 'wb')
+		m().write.assert_called_once_with(b'test_in_file_1\n')
+		m().__exit__.assert_called_once_with(None, None, None)
+
+	def test_extract_byte_path(self):
+		m = mock_open()
+		with arpy.Archive(os.path.join(os.path.dirname(__file__), 'contents.ar')) as ar:
+			with patch('arpy.open', m):
+				with patch('os.makedirs') as m_makedirs:
+					ar.extract(b'file1', b'/foobar')
+
+		m_makedirs.assert_called_once_with(b'/foobar', exist_ok=True)
+		m.assert_called_once_with(b'/foobar/file1', 'wb')
+		m().write.assert_called_once_with(b'test_in_file_1\n')
+		m().__exit__.assert_called_once_with(None, None, None)
+
+	def test_extract_preserves_member_subdirectories(self):
+		m = mock_open()
+		with arpy.Archive(fileobj=make_archive([(b'dir/file', b'test')])) as ar:
+			with patch('arpy.open', m):
+				with patch('os.makedirs') as m_makedirs:
+					ar.extract(b'dir/file', '/foobar')
+
+		m_makedirs.assert_called_once_with(b'/foobar/dir', exist_ok=True)
+		m.assert_called_once_with(b'/foobar/dir/file', 'wb')
+		m().write.assert_called_once_with(b'test')
+
+	def test_extract_rewinds_member_before_copying(self):
+		m = mock_open()
+		with arpy.Archive(os.path.join(os.path.dirname(__file__), 'contents.ar')) as ar:
+			ar.open(b'file1').read(4)
+			with patch('arpy.open', m):
+				with patch('os.makedirs'):
+					ar.extract(b'file1', '/foobar')
+					ar.extract(b'file1', '/barbaz')
+
+		m().write.assert_has_calls([
+			call(b'test_in_file_1\n'),
+			call(b'test_in_file_1\n'),
+		])
+
+	def test_extractall(self):
+		with arpy.Archive(os.path.join(os.path.dirname(__file__), 'contents.ar')) as ar:
+			with patch.object(ar, 'extract') as m_extract:
+				ar.extractall('/foobar')
+
+		m_extract.assert_has_calls([
+			call(b'file1', '/foobar'),
+			call(b'file2', '/foobar'),
+		], any_order=True)
+
+	def test_extractall2(self):
+		with arpy.Archive(os.path.join(os.path.dirname(__file__), 'contents.ar')) as ar:
+			with patch.object(ar, 'extract') as m_extract:
+				ar.extractall('/foobar', [b'file2'])
+
+		m_extract.assert_called_once_with(b'file2', '/foobar')
 
 class ArZipLike(unittest.TestCase):
 	def setUp(self):

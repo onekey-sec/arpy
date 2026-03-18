@@ -60,6 +60,7 @@ You can also use context manager syntax with either the ar file or its contents.
 """
 
 import io
+import os
 import struct
 import os.path
 from typing import Optional, List, Dict, BinaryIO, cast, Union
@@ -84,6 +85,9 @@ class ArchiveFormatError(Exception):
 	pass
 class ArchiveAccessError(IOError):
 	""" Raised on problems with accessing the archived files """
+	pass
+class ExtractBreakoutAttempt(IOError):
+	""" Raised on files which would be extracted above specified path """
 	pass
 
 class ArchiveFileHeader(object):
@@ -449,6 +453,50 @@ class Archive(object):
 			return ArchiveFileData(ar_obj=self, header=name)
 
 		raise ValueError("Can't look up file using type %s, expected bytes or ArchiveFileHeader" % (type(name),))
+
+	def _resolve_extraction_path(self, member: bytes,
+			path: Optional[Union[str,bytes]]) -> bytes:
+		if path is None:
+			path = os.getcwd()
+
+		if isinstance(path, str):
+			path = path.encode('utf-8')
+
+		normpath = os.path.abspath(path)
+		filepath = os.path.abspath(os.path.join(normpath, member))
+
+		if os.path.commonpath([normpath, filepath]) != normpath:
+			raise ExtractBreakoutAttempt("file %r would be extracted below specified path" % (member,))
+
+		return filepath
+
+	def extract(self, member: bytes, path: Optional[Union[str,bytes]]=None) -> None:
+		filepath = self._resolve_extraction_path(member, path)
+		buf_size = 8*1024
+
+		dirpath = os.path.dirname(filepath)
+		if dirpath:
+			os.makedirs(dirpath, exist_ok=True)
+
+		ar_member = self.open(member)
+		ar_member.seek(0)
+		with open(filepath, 'wb') as f:
+			while True:
+				buffer = ar_member.read(buf_size)
+				if not len(buffer):
+					break
+				f.write(buffer)
+
+	def extractall(self, path: Union[str, bytes], members: Optional[List[bytes]]=None) -> None:
+		self.read_all_headers()
+
+		if members is None:
+			sources = list(self.archived_files.keys())
+		else:
+			sources = members
+
+		for member in sources:
+			self.extract(member, path)
 
 	def __enter__(self) -> "Archive":
 		return self
