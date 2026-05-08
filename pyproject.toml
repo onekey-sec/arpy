@@ -1,5 +1,9 @@
 #:schema https://json.schemastore.org/pyproject.json
 
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools>=77.0.0"]
+
 [project]
 authors = [
   { name = "Stanisław Pitucha", email = "viraptor@gmail.com" },
@@ -8,11 +12,14 @@ authors = [
 
 dependencies = []
 description = "Library for accessing 'ar' files"
-license = { text = "BSD-2-Clause" }
+license = "BSD-2-Clause"
 name = "arpy"
 readme = "README.md"
 requires-python = ">=3.10"
 version = "2.3.0"
+
+[tool.setuptools]
+py-modules = ["arpy"]
 
 [dependency-groups]
 dev = [
