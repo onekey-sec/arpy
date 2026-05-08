@@ -8,6 +8,13 @@ on:
       - "*"
   pull_request:
   merge_group:
+  workflow_dispatch:
+    inputs:
+      test_release:
+        description: If true, publish to test.pypi.org
+        required: true
+        default: true
+        type: boolean
 
 permissions:
   contents: read
@@ -65,3 +72,113 @@ jobs:
 
       - name: Run pytest
         run: uv run pytest -vvv
+
+  build_distribution:
+    name: Build distribution
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || contains(github.event.*.labels.*.name, 'dependencies')
+    needs: [check_pre_commit]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@e06108dd0aef18192324c70427afc47652e63a82
+
+      - name: Build distribution
+        run: uv build --sdist --wheel
+
+      - name: Upload distribution
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: distribution
+          path: dist
+
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    if: ${{ startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch' }}
+    needs:
+      - run_python_tests
+      - build_distribution
+    permissions:
+      # Used by PyPI/TestPyPI trusted publishing and artifact attestation.
+      id-token: write
+      # Used to upload release artifacts.
+      contents: write
+      # Used to generate artifact attestation.
+      attestations: write
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      - name: Check release tag
+        id: release_tag
+        if: ${{ startsWith(github.ref, 'refs/tags/') }}
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          import tomllib
+
+          from pathlib import Path
+
+          version = tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"]
+          tag = os.environ["RELEASE_TAG"]
+
+          if not re.fullmatch(r"\d+\.\d+\.\d+", tag):
+              with Path(os.environ["GITHUB_OUTPUT"]).open("a") as output:
+                  output.write("publish=false\n")
+              print(f"release tag {tag!r} is not a bare semantic version; skipping publish")
+              raise SystemExit(0)
+
+          if tag != version:
+              raise SystemExit(f"release tag {tag!r} does not match project version {version!r}")
+
+          with Path(os.environ["GITHUB_OUTPUT"]).open("a") as output:
+              output.write("publish=true\n")
+          PY
+
+      - name: Download distribution
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: distribution
+          path: dist
+
+      - name: Generate artifact attestation
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.release_tag.outputs.publish == 'true' }}
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        with:
+          subject-path: dist/*
+
+      - name: Publish to TestPyPI
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.test_release }}
+        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13.0
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          skip-existing: true
+
+      - name: Publish to PyPI
+        if: ${{ steps.release_tag.outputs.publish == 'true' }}
+        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13.0
+        with:
+          skip-existing: true
+
+      - name: Create GitHub Release
+        if: ${{ steps.release_tag.outputs.publish == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          gh release create "$RELEASE_TAG" \
+            --repo "$REPOSITORY" \
+            --title "$RELEASE_TAG" \
+            --generate-notes \
+            dist/*
