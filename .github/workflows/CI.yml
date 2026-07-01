@@ -48,7 +48,7 @@ jobs:
         run: uv run pyright .
 
   run_python_tests:
-    name: Run tests (Python)
+    name: Run tests (Python) (${{ matrix.python-version }})
     needs: [check_pre_commit, check_pyright]
     runs-on: ubuntu-latest
     strategy:
@@ -65,3 +65,13 @@ jobs:
 
       - name: Run pytest
         run: uv run pytest -vvv
+
+  run_python_tests_status:
+    name: Run tests (Python)
+    needs: [run_python_tests]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check matrix result
+        if: ${{ needs.run_python_tests.result != 'success' }}
+        run: exit 1
