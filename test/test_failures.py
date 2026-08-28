@@ -64,6 +64,16 @@ class SimpleNames(unittest.TestCase):
         with pytest.raises(arpy.ArchiveFormatError):
             ar.read_all_headers()
 
+    def test_table_reference_not_at_name_boundary(self):
+        bad_ar = (
+            b"!<arch>\n//                                              10        `\n"
+            b"filename/\n"
+            b"/1              1297730011  1000  1000  100644  0         `\n"
+        )
+        ar = arpy.Archive(fileobj=io.BytesIO(bad_ar))
+        with pytest.raises(arpy.ArchiveFormatError):
+            ar.read_all_headers()
+
 
 if __name__ == "__main__":
     unittest.main()
