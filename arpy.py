@@ -253,7 +253,9 @@ class Archive:
             raise ArchiveFormatError("file is missing the global header")
 
         self.next_header_offset = GLOBAL_HEADER_LEN
-        self.gnu_table = cast(dict[int, bytes], {})
+        self.gnu_table_data: bytes | None = None
+        self.gnu_table_separator = b"\n"
+        self.gnu_name_cache: dict[int, bytes] = {}
         self.archived_files = cast(dict[bytes, ArchiveFileData], {})
 
     def _detect_seekable(self) -> None:
@@ -315,17 +317,36 @@ class Archive:
 
     def __read_gnu_table(self, size: int) -> None:
         """Read the table of filenames specific to GNU ar format."""
-        table_string = self.read(size)
-        if len(table_string) != size:
+        table_data = self.read(size)
+        if len(table_data) != size:
             raise ArchiveFormatError("file too short to fit the names table")
 
-        self.gnu_table = {}
+        self.gnu_table_data = table_data
+        self.gnu_table_separator = b"\x00" if b"\x00" in table_data else b"\n"
+        self.gnu_name_cache = {}
 
-        position = 0
-        split_char = b"\x00" if b"\x00" in table_string else b"\n"
-        for filename in table_string.split(split_char):
-            self.gnu_table[position] = filename.removesuffix(b"/")
-            position += len(filename) + 1
+    def __resolve_gnu_name(self, position: int) -> bytes:
+        """Return the GNU extended filename starting at a table offset."""
+        cached_name = self.gnu_name_cache.get(position)
+        if cached_name is not None:
+            return cached_name
+
+        if self.gnu_table_data is None:
+            raise ArchiveFormatError("file references a name not present in the index")
+
+        table_data = self.gnu_table_data
+        separator = self.gnu_table_separator
+        if position < 0 or position > len(table_data):
+            raise ArchiveFormatError("file references a name not present in the index")
+        if position and table_data[position - 1 : position] != separator:
+            raise ArchiveFormatError("file references a name not present in the index")
+
+        end = table_data.find(separator, position)
+        if end == -1:
+            end = len(table_data)
+        name = table_data[position:end].removesuffix(b"/")
+        self.gnu_name_cache[position] = name
+        return name
 
     def __fix_name(self, header: ArchiveFileHeader) -> int:
         """Correct the long filename using the format-specific method.
@@ -351,11 +372,7 @@ class Archive:
 
         elif header.type == HEADER_GNU:
             gnu_position = int(header.proxy_name[1:])
-            if gnu_position not in self.gnu_table:
-                raise ArchiveFormatError(
-                    "file references a name not present in the index"
-                )
-            header.name = self.gnu_table[gnu_position]
+            header.name = self.__resolve_gnu_name(gnu_position)
 
         elif header.type == HEADER_GNU_SYMBOLS:
             pass
