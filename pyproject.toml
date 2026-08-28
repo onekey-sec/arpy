@@ -16,7 +16,7 @@ license = "BSD-2-Clause"
 name = "arpy"
 readme = "README.md"
 requires-python = ">=3.10"
-version = "2.3.0"
+version = "2.4.0"
 
 [tool.setuptools]
 py-modules = ["arpy"]
