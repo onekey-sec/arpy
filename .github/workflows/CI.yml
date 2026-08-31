@@ -103,32 +103,46 @@ jobs:
       - name: Upload distribution
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: distribution
+          name: python-package-distributions
           path: dist
 
-  release:
-    name: Release
+  publish_to_testpypi:
+    name: Publish distribution to TestPyPI
     runs-on: ubuntu-latest
-    if: ${{ startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.test_release }}
     needs:
       - run_python_tests
       - build_distribution
     permissions:
-      # Used by PyPI/TestPyPI trusted publishing and artifact attestation.
       id-token: write
-      # Used to upload release artifacts.
-      contents: write
-      # Used to generate artifact attestation.
-      attestations: write
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/arpy
+    steps:
+      - name: Download distribution
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: python-package-distributions
+          path: dist
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13.0
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          skip-existing: true
+
+  validate_release_tag:
+    name: Validate release tag
+    runs-on: ubuntu-latest
+    if: ${{ startsWith(github.ref, 'refs/tags/') }}
+    outputs:
+      publish: ${{ steps.release_tag.outputs.publish }}
     steps:
       - name: Checkout source code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           persist-credentials: false
-
       - name: Check release tag
         id: release_tag
-        if: ${{ startsWith(github.ref, 'refs/tags/') }}
         env:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
@@ -155,33 +169,55 @@ jobs:
               output.write("publish=true\n")
           PY
 
+  publish_to_pypi:
+    name: Publish distribution to PyPI
+    runs-on: ubuntu-latest
+    if: ${{ startsWith(github.ref, 'refs/tags/') && needs.validate_release_tag.outputs.publish == 'true' }}
+    needs:
+      - run_python_tests
+      - build_distribution
+      - validate_release_tag
+    permissions:
+      id-token: write
+    environment:
+      name: pypi
+      url: https://pypi.org/p/arpy
+    steps:
       - name: Download distribution
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          name: distribution
+          name: python-package-distributions
+          path: dist
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13.0
+        with:
+          skip-existing: true
+
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    if: ${{ startsWith(github.ref, 'refs/tags/') && needs.validate_release_tag.outputs.publish == 'true' }}
+    needs:
+      - run_python_tests
+      - build_distribution
+      - validate_release_tag
+    permissions:
+      contents: write
+      attestations: write
+      id-token: write
+    steps:
+      - name: Download distribution
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: python-package-distributions
           path: dist
 
       - name: Generate artifact attestation
-        if: ${{ github.event_name == 'workflow_dispatch' || steps.release_tag.outputs.publish == 'true' }}
         uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
         with:
           subject-path: dist/*
 
-      - name: Publish to TestPyPI
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.test_release }}
-        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13.0
-        with:
-          repository-url: https://test.pypi.org/legacy/
-          skip-existing: true
-
-      - name: Publish to PyPI
-        if: ${{ steps.release_tag.outputs.publish == 'true' }}
-        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13.0
-        with:
-          skip-existing: true
-
       - name: Create GitHub Release
-        if: ${{ steps.release_tag.outputs.publish == 'true' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ github.ref_name }}
