@@ -12,7 +12,7 @@ license = "BSD-2-Clause"
 license-files = ["LICENSE"]
 name = "arpy"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 version = "2.4.0"
 
 [dependency-groups]
@@ -33,7 +33,7 @@ build-backend = "uv_build"
 requires = ["uv_build>=0.12.17,<0.13"]
 
 [tool.ruff]
-target-version = "py310"
+target-version = "py311"
 
 [tool.ruff.lint]
 select = [
