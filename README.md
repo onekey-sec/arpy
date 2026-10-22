@@ -54,11 +54,26 @@ for f in ar:
 ```
 
 
+Development
+===========
+
+The package is maintained with [uv](https://docs.astral.sh/uv/). If you want to contribute, we recommend you follow these steps:
+
+```sh
+git clone https://github.com/onekey-sec/arpy.git
+cd arpy
+uv sync
+uv run pytest
+uv run pre-commit install
+```
+
+Nix users get the environment from `nix develop` or direnv.
+
 Contributions
 =============
 
 All contributions welcome. Just make sure that:
 
 *  tests are provided
-*  all current platforms are passing (tox configuration is provided)
+*  CI passes on all supported Python versions
 *  coverage is close to 100% (currently only missing statements are those depending on python version being used)
