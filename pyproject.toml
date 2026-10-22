@@ -1,9 +1,5 @@
 #:schema https://json.schemastore.org/pyproject.json
 
-[build-system]
-build-backend = "setuptools.build_meta"
-requires = ["setuptools>=77.0.0"]
-
 [project]
 authors = [
   { name = "Stanisław Pitucha", email = "viraptor@gmail.com" },
@@ -13,24 +9,28 @@ authors = [
 dependencies = []
 description = "Library for accessing 'ar' files"
 license = "BSD-2-Clause"
+license-files = ["LICENSE"]
 name = "arpy"
 readme = "README.md"
 requires-python = ">=3.10"
 version = "2.4.0"
 
-[tool.setuptools]
-packages = ["arpy"]
-
 [dependency-groups]
+check = ["pre-commit>=3.5,<5.0", "ruff==0.9.9", "taplo>=0.9.3"]
 dev = [
-  "pre-commit>=3.5,<5.0",
-  "pyright>=1.1.349",
-  "pytest-cov>=3,<7",
-  "pytest>=9.0.3",
-  "pyyaml>=6.0.1",
-  "ruff==0.9.9",
-  "taplo>=0.9.3",
+  { include-group = "check" },
+  { include-group = "test" },
+  { include-group = "type" },
 ]
+test = ["pytest-cov>=7,<8", "pytest>=9.0.3"]
+type = ["pyright>=1.1.349"]
+
+[tool.uv.build-backend]
+module-root = ""
+
+[build-system]
+build-backend = "uv_build"
+requires = ["uv_build>=0.12.17,<0.13"]
 
 [tool.ruff]
 target-version = "py310"
@@ -124,7 +124,7 @@ parametrize-names-type = "csv"
 "attr".msg = "Use `attrs` (with an 's') instead"
 
 [tool.pytest.ini_options]
-addopts = "--cov=arpy --cov=tests --cov-branch --cov-fail-under=90"
+addopts = "--cov"
 norecursedirs = """
   *.egg
   *_extract
@@ -134,15 +134,9 @@ norecursedirs = """
   target
 """
 
-[tool.coverage.paths]
-source = ["tests", "arpy"]
-
 [tool.coverage.run]
 branch = true
-concurrency = ["multiprocessing"]
-parallel = true
-sigterm = true
-source = ["tests", "arpy"]
+source = ["arpy", "tests"]
 
 [tool.coverage.report]
 fail_under = 90
@@ -153,5 +147,4 @@ exclude = []
 paths = ["arpy/", "vulture_whitelist.py"]
 
 [tool.pyright]
-exclude = [".venv", "build"]
-typeCheckingMode = "standard"
+exclude = [".venv", "build", "vulture_whitelist.py"]
