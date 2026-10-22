@@ -2,13 +2,14 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended", "schedule:earlyMondays"],
   "labels": ["dependencies"],
+  "minimumReleaseAge": "14 days",
   "osvVulnerabilityAlerts": true,
   "packageRules": [
     {
       "matchUpdateTypes": ["minor", "patch"],
       "autoApprove": true,
       "automerge": true
-    },
+    }
   ],
   "lockFileMaintenance": {
     "enabled": true,
@@ -16,11 +17,15 @@
     "commitMessageExtra": "({{packageFile}})",
     "extends": ["schedule:monthly"]
   },
+  "nix": {
+    "enabled": true,
+    "description": "opt-in support for nix https://docs.renovatebot.com/modules/manager/nix/#enabling"
+  },
   "pep621": {
     "rangeStrategy": "update-lockfile"
   },
   "pre-commit": {
     "enabled": true,
-    "description": "opt-in support for pre-commit  https://docs.renovatebot.com/modules/manager/nix/#enabling"
+    "description": "opt-in support for pre-commit https://docs.renovatebot.com/modules/manager/pre-commit/"
   }
 }

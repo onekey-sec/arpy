@@ -117,11 +117,11 @@ class ArchiveFileHeader:
             if self.type in (HEADER_NORMAL, HEADER_BSD, HEADER_GNU):
                 self.timestamp = int(timestamp)
                 if uid.strip():
-                    self.uid = cast(int | None, int(uid))
+                    self.uid = cast("int | None", int(uid))
                 else:
                     self.uid = None
                 if gid.strip():
-                    self.gid = cast(int | None, int(gid))
+                    self.gid = cast("int | None", int(gid))
                 else:
                     self.gid = None
                 self.mode = int(mode, 8)
@@ -138,7 +138,7 @@ class ArchiveFileHeader:
 
         if self.type == HEADER_NORMAL:
             self.name = name
-            self.file_offset = cast(int | None, offset + HEADER_LEN)
+            self.file_offset = cast("int | None", offset + HEADER_LEN)
         else:
             self.name = None
             self.proxy_name = name
@@ -166,7 +166,7 @@ class ArchiveFileData(io.IOBase):
         if self.header.size < self.last_offset + size:
             size = self.header.size - self.last_offset
 
-        self.arobj.seek(cast(int, self.header.file_offset) + self.last_offset)
+        self.arobj.seek(cast("int", self.header.file_offset) + self.last_offset)
         data = self.arobj.read(size)
         if len(data) < size:
             raise ArchiveAccessError("incorrect archive file")
@@ -234,7 +234,7 @@ class Archive:
     def __init__(
         self, filename: str | None = None, fileobj: BinaryIO | None = None
     ) -> None:
-        self.headers = cast(list[ArchiveFileHeader], [])
+        self.headers = cast("list[ArchiveFileHeader]", [])
         if fileobj:
             self.file = fileobj
         elif filename:
@@ -256,7 +256,7 @@ class Archive:
         self.gnu_table_data: bytes | None = None
         self.gnu_table_separator = b"\n"
         self.gnu_name_cache: dict[int, bytes] = {}
-        self.archived_files = cast(dict[bytes, ArchiveFileData], {})
+        self.archived_files = cast("dict[bytes, ArchiveFileData]", {})
 
     def _detect_seekable(self) -> None:
         if hasattr(self.file, "seekable"):
@@ -483,13 +483,3 @@ class Archive:
     def __exit__(self, _exc_type, _exc_value, _traceback):
         self.close()
         return False
-
-
-if __name__ == "__main__":
-    import sys
-
-    ar = Archive(sys.argv[1])
-    ar.read_all_headers()
-
-    for key in ar.archived_files:
-        print(key)  # noqa: T201
