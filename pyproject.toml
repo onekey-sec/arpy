@@ -2,8 +2,8 @@
 
 [project]
 authors = [
-  { name = "Stanisław Pitucha", email = "viraptor@gmail.com" },
   { name = "ONEKEY", email = "support@onekey.com" },
+  { name = "Stanisław Pitucha", email = "viraptor@gmail.com" },
 ]
 
 dependencies = []
@@ -16,7 +16,7 @@ requires-python = ">=3.10"
 version = "2.4.0"
 
 [dependency-groups]
-check = ["pre-commit>=3.5,<5.0", "ruff==0.9.9", "taplo>=0.9.3"]
+check = ["pre-commit>=3.5,<5.0", "ruff==0.16.10", "taplo>=0.9.3"]
 dev = [
   { include-group = "check" },
   { include-group = "test" },
@@ -63,40 +63,19 @@ select = [
   "T10",    # flake8-debugger
   "T20",    # flake8-print
   "TC",     # flake8-type-checking
-  "TID251", # flake8-tidy-imports; banned-api
   "TRY",    # tryceratops
   "UP",     # pyupgrade
   "W",      # pycodestyle (warnings)
 ]
 
 ignore = [
-  "B027",    # empty-method-without-abstract-decorator: It is okay to have empty methods in abstract classes
-  "D1",      # undocumented-*:                          We are not documenting every public symbol
-  "D203",    # one-blank-line-before-class:             D211 (no-blank-line-before-class) is used instead
-  "D213",    # multi-line-summary-second-line:          D212 (multi-line-summary-first-line) is used instead
-  "E501",    # line-too-long:                           Let black handle line length violations
-  "N818",    # error-suffix-on-exception-name:          Exception names can be meaningful without smurfs
-  "PLC0414", # useless-import-alias:                    Enable explicitly re-exporting public symbols
-  "PLR09",   # too-many-{arguments,branches,...}:       We do not want to impose hard limits
-  "PTH201",  # path-constructor-current-directory:      Having "." explicitly passed expresses intent more clearly
-  "RUF012",  # mutable-class-default:                   Wants to annotate things like `Handler.PATTERNS` with `ClassVar`, producing noise
-  "S101",    # assert:                                  Enable usage of asserts
-  "S603",    # subprocess-without-shell-equals-true:    This check just highlights, that we should check for untrusted inputs
-  "S607",    # start-process-with-partial-path:         In our case, the convenience of allowing partial paths outweighs the risks
-  "TRY003",  # raise-vanilla-args:                      We are adding contextual information in exception messages
-  "TRY400",  # error-instead-of-exception:              It is okay to log without backtrace in except blocks
-]
-
-# Do not remove unused imports automatically in __init__.py files
-ignore-init-module-imports = true
-
-[tool.ruff.lint.per-file-ignores]
-".github/*" = [
-  "T201", # print
-]
-"tests/*" = [
-  "FBT001", # boolean-positional-arg-in-function-definition: allowed in `pytest.param()`
-  "FBT003", # boolean-positional-value-in-function-call:     allowed test parameters
+  "D1",     # undocumented-*:                    We are not documenting every public symbol
+  "D203",   # one-blank-line-before-class:       D211 (no-blank-line-before-class) is used instead
+  "D213",   # multi-line-summary-second-line:    D212 (multi-line-summary-first-line) is used instead
+  "E501",   # line-too-long:                     Let ruff format handle line length violations
+  "PLR09",  # too-many-{arguments,branches,...}: We do not want to impose hard limits
+  "S101",   # assert:                            Enable usage of asserts
+  "TRY003", # raise-vanilla-args:                We are adding contextual information in exception messages
 ]
 
 [tool.ruff.lint.flake8-comprehensions]
@@ -116,12 +95,7 @@ allow-magic-value-types = [
 ]
 
 [tool.ruff.lint.flake8-pytest-style]
-fixture-parentheses = false
-mark-parentheses = false
 parametrize-names-type = "csv"
-
-[tool.ruff.lint.flake8-tidy-imports.banned-api]
-"attr".msg = "Use `attrs` (with an 's') instead"
 
 [tool.pytest.ini_options]
 addopts = "--cov"

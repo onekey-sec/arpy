@@ -1,16 +1,14 @@
 # See https://pre-commit.com for more information
 # See https://pre-commit.com/hooks.html for more hooks
-exclude: ^\.patch
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
       - id: trailing-whitespace
-        exclude: "tests/samples/.*"
+        exclude: "(^tests/samples/|.*\\.md$)"
       - id: end-of-file-fixer
-        exclude: "tests/samples/.*"
+        exclude: "^tests/samples/"
       - id: check-json
-        exclude: "renovate.json"
       - id: check-toml
       - id: check-yaml
       - id: check-added-large-files
@@ -28,9 +26,31 @@ repos:
       - id: ruff-format
         name: Format python (ruff)
         language: system
-        types_or: [python, pyi]
+        types_or: [python, pyi, markdown]
         require_serial: true
         entry: uv run ruff format --force-exclude
+      - id: nixfmt
+        name: Format Nix (nixfmt)
+        types: [nix]
+        language: system
+        require_serial: true
+        entry: bash -c 'command -v nix && nix "$@" || echo "skipping nixfmt"' nix
+        args:
+          - --experimental-features
+          - nix-command flakes
+          - --accept-flake-config
+          - fmt
+      - id: statix
+        name: Lint Nix (statix)
+        types: [nix]
+        pass_filenames: false
+        language: system
+        entry: bash -c 'command -v nix && statix fix "$@" || echo "skipping statix"'
+      - id: deadnix
+        name: Lint Nix (deadnix)
+        types: [nix]
+        language: system
+        entry: bash -c 'command -v nix && deadnix --edit "$@" || echo "skipping deadnix"'
       - id: taplo-format
         name: Format TOML (taplo)
         language: system
@@ -38,13 +58,13 @@ repos:
         entry: uv run taplo format
 
   - repo: https://github.com/jendrikseipp/vulture
-    rev: v2.14
+    rev: v2.16
     hooks:
       - id: vulture
         name: Check vulture
 
   - repo: https://github.com/python-jsonschema/check-jsonschema
-    rev: 0.31.1
+    rev: 0.38.2
     hooks:
       - id: check-github-actions
         name: Check Github actions
@@ -52,7 +72,9 @@ repos:
         name: Check Github workflows
 
   - repo: https://github.com/renovatebot/pre-commit-hooks
-    rev: 39.171.1
+    rev: 41.173.1
     hooks:
       - id: renovate-config-validator
         args: [--strict]
+        # use node from PATH when present (e.g. nix-shell), download it otherwise
+        language_version: default
