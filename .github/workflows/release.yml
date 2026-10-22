@@ -1,0 +1,142 @@
+name: Publish Python distribution to PyPI
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      test_release:
+        description: If true, publish to test.pypi.org
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: CI
+    uses: ./.github/workflows/CI.yml
+
+  validate-release-tag:
+    name: Validate release tag
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Require semantic version tag
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          if [[ ! "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Release tag must match vMAJOR.MINOR.PATCH (for example, v2.5.0)."
+            exit 1
+          fi
+
+  build:
+    name: Build distribution
+    needs: ci
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out source code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+
+      - name: Build distribution packages
+        run: uv build
+
+      - name: Store distribution packages
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: python-package-distributions
+          path: dist/
+
+  release:
+    name: Create GitHub release
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    needs:
+      - build
+      - validate-release-tag
+    runs-on: ubuntu-latest
+    permissions:
+      # Use to sign the release artifacts
+      id-token: write
+      # Used to upload release artifacts
+      contents: write
+      # Used to generate artifact attestation
+      attestations: write
+
+    steps:
+      - name: Download distribution packages
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: dist/*
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          gh release create "${{ github.ref_name }}"
+          --repo "${{ github.repository }}"
+          --title "${{ github.ref_name }}"
+          --generate-notes
+          dist/*
+
+  publish:
+    name: Publish distribution to PyPI
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs:
+      - build
+      - validate-release-tag
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/arpy/
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Download distribution packages
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - name: Publish distribution to PyPI
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+
+  publish-to-testpypi:
+    name: Publish distribution to TestPyPI
+    if: github.event_name == 'workflow_dispatch' && inputs.test_release
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/project/arpy/
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Download distribution packages
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - name: Publish distribution to TestPyPI
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          repository-url: https://test.pypi.org/legacy/
