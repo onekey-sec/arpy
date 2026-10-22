@@ -6,9 +6,9 @@ repos:
     rev: v5.0.0
     hooks:
       - id: trailing-whitespace
-        exclude: "test/samples/.*"
+        exclude: "tests/samples/.*"
       - id: end-of-file-fixer
-        exclude: "test/samples/.*"
+        exclude: "tests/samples/.*"
       - id: check-json
         exclude: "renovate.json"
       - id: check-toml

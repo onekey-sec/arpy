@@ -132,7 +132,6 @@ norecursedirs = """
   dist
   build
   target
-  tests
 """
 
 [tool.coverage.paths]
