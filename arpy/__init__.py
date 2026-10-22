@@ -483,13 +483,3 @@ class Archive:
     def __exit__(self, _exc_type, _exc_value, _traceback):
         self.close()
         return False
-
-
-if __name__ == "__main__":
-    import sys
-
-    ar = Archive(sys.argv[1])
-    ar.read_all_headers()
-
-    for key in ar.archived_files:
-        print(key)  # noqa: T201
